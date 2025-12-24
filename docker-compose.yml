@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL 데이터베이스
+  db:
+    image: postgres:15-alpine
+    container_name: deepmirror_db
+    environment:
+      # 나중에 Spring Boot에서 이 정보를 그대로 사용합니다.
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data # DB 데이터를 SSD에 영구 저장
+    # 외부 포트 노출 금지: DB는 앱 서버만 접근해야 보안에 유리
+    restart: always
+
+  # 2. Spring Boot 앱 서버 (아직 이미지가 없으므로 'build'만 설정)
+  app:
+    build:
+      context: .  # Dockerfile은 현재 디렉토리(deepmirror)에 있다고 가정
+      dockerfile: Dockerfile
+    container_name: deepmirror_app
+    ports:
+      - "8080:8080" # 노트북의 8080 포트를 앱 서버의 8080 포트로 연결
+    environment:
+      # DB 연결 설정. 'db'는 위에서 정의한 서비스명입니다.
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      - db # db가 먼저 실행된 후 app이 실행되도록 설정
+    restart: always
+
+# 영구 저장을 위한 볼륨 정의
+volumes:
+  db_data:

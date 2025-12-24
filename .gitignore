@@ -1,0 +1,18 @@
+# Secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+
+# IDE & Build
+.idea/
+.vscode/
+build/
+.gradle/
+bin/
+out/
+
+# Application logs
+logs/
+*.log

@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.0' 
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.deepmirror'
+version = '0.0.1-SNAPSHOT'
+description = 'DeepMirror of Personality'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:1.0.0-M4"
+    }
+}
+
+dependencies {
+    // 1. JPA (DB 연결용)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // 2. WEB (서버 구동용) ★ 중요 수정 ★
+    // 기존 'starter-webmvc'는 톰캣(서버)이 포함되지 않아 실행이 안 됩니다.
+    // 반드시 'starter-web'으로 바꿔야 내장 톰캣이 같이 설치됩니다.
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // 3. PostgreSQL 드라이버
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // 4. Spring AI - OpenAI (나중에 Gemini로 교체 가능) spring-ai-openai-spring-boot-starter → spring-ai-vertex-ai-gemini-spring-boot-starter
+    implementation 'org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter'
+
+    // 5. API 문서화 (Swagger UI)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+
+    // 6. 테스트 도구 (통합 패키지로 변경)
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

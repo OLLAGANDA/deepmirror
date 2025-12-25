@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>분석 결과 - DeepMirror</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8 px-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+            <div class="text-center">
+                <div class="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full p-3 mb-4">
+                    <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2" th:text="${result.clientIp} + '님의 성격 분석 결과'">
+                    000님의 성격 분석 결과
+                </h1>
+                <p class="text-sm text-gray-500 mt-2" th:text="${#temporals.format(result.createdAt, 'yyyy년 MM월 dd일 HH:mm:ss')}">분석 완료 일시</p>
+            </div>
+        </div>
+
+        <!-- Main Content: Chart + AI Analysis -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Radar Chart Card -->
+            <div class="bg-white rounded-2xl shadow-2xl p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">성격 특성 분포</h2>
+                <div class="relative" style="height: 400px;">
+                    <canvas id="personalityRadarChart"></canvas>
+                </div>
+
+                <!-- Legend with scores -->
+                <div class="mt-6 space-y-3">
+                    <div class="flex justify-between items-center px-4 py-2 bg-indigo-50 rounded-lg">
+                        <span class="text-sm font-semibold text-indigo-700">개방성</span>
+                        <span class="text-lg font-bold text-indigo-600" th:text="${result.openness} + '점'">0점</span>
+                    </div>
+                    <div class="flex justify-between items-center px-4 py-2 bg-blue-50 rounded-lg">
+                        <span class="text-sm font-semibold text-blue-700">성실성</span>
+                        <span class="text-lg font-bold text-blue-600" th:text="${result.conscientiousness} + '점'">0점</span>
+                    </div>
+                    <div class="flex justify-between items-center px-4 py-2 bg-purple-50 rounded-lg">
+                        <span class="text-sm font-semibold text-purple-700">외향성</span>
+                        <span class="text-lg font-bold text-purple-600" th:text="${result.extraversion} + '점'">0점</span>
+                    </div>
+                    <div class="flex justify-between items-center px-4 py-2 bg-pink-50 rounded-lg">
+                        <span class="text-sm font-semibold text-pink-700">친화성</span>
+                        <span class="text-lg font-bold text-pink-600" th:text="${result.agreeableness} + '점'">0점</span>
+                    </div>
+                    <div class="flex justify-between items-center px-4 py-2 bg-violet-50 rounded-lg">
+                        <span class="text-sm font-semibold text-violet-700">신경성</span>
+                        <span class="text-lg font-bold text-violet-600" th:text="${result.neuroticism} + '점'">0점</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Analysis Card -->
+            <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-2xl p-8 text-white">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    AI 성격 분석
+                </h2>
+                <div class="bg-white bg-opacity-20 backdrop-blur-lg rounded-xl p-6 overflow-y-auto" style="max-height: 550px;">
+                    <p class="text-base leading-relaxed whitespace-pre-wrap" th:text="${result.aiAnalysis}">
+                        AI가 분석한 당신의 성격에 대한 상세한 설명이 여기에 표시됩니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Trait Analysis Section -->
+        <div class="mb-6">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">세부 항목 분석</h2>
+                <p class="text-center text-gray-600 mb-8">각 성격 특성에 대한 상세한 분석 결과입니다.</p>
+
+                <!-- Detailed Trait Cards Container -->
+                <div id="detailedTraitsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Cards will be dynamically generated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Facet Radar Charts Section -->
+        <div class="mb-6">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">성격 특성 소분류 분석</h2>
+                <p class="text-center text-gray-600 mb-8">각 성격 특성을 6가지 세부 요소로 나누어 분석한 결과입니다.</p>
+
+                <!-- Facet Charts Container -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Neuroticism Facet Chart -->
+                    <div class="bg-gradient-to-br from-violet-50 to-violet-100 border-2 border-violet-200 rounded-xl p-6 shadow-lg">
+                        <h3 class="text-2xl font-bold text-violet-700 mb-4 text-center">신경성 (Neuroticism)</h3>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="neuroticismFacetChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Extraversion Facet Chart -->
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl p-6 shadow-lg">
+                        <h3 class="text-2xl font-bold text-purple-700 mb-4 text-center">외향성 (Extraversion)</h3>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="extraversionFacetChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Openness Facet Chart -->
+                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-xl p-6 shadow-lg">
+                        <h3 class="text-2xl font-bold text-indigo-700 mb-4 text-center">개방성 (Openness)</h3>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="opennessFacetChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Agreeableness Facet Chart -->
+                    <div class="bg-gradient-to-br from-pink-50 to-pink-100 border-2 border-pink-200 rounded-xl p-6 shadow-lg">
+                        <h3 class="text-2xl font-bold text-pink-700 mb-4 text-center">친화성 (Agreeableness)</h3>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="agreeablenessFacetChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Conscientiousness Facet Chart (full width) -->
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 shadow-lg lg:col-span-2">
+                        <h3 class="text-2xl font-bold text-blue-700 mb-4 text-center">성실성 (Conscientiousness)</h3>
+                        <div class="relative mx-auto" style="height: 300px; max-width: 500px;">
+                            <canvas id="conscientiousnessFacetChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <a href="/"
+                   class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 shadow-lg text-center">
+                    다시 테스트하기
+                </a>
+                <button onclick="window.print()"
+                        class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 shadow-lg">
+                    결과 인쇄
+                </button>
+            </div>
+        </div>
+
+        <!-- Share Info -->
+        <div class="bg-white rounded-2xl shadow-lg p-4 text-center">
+            <p class="text-sm text-gray-600">
+                결과 공유 URL:
+                <span class="font-mono text-indigo-600 select-all font-semibold" th:text="${'http://localhost:8080/results/' + result.id}">URL</span>
+            </p>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        // Thymeleaf 변수를 JavaScript 변수로 변환
+        const openness = /*[[${result.openness}]]*/ 0;
+        const conscientiousness = /*[[${result.conscientiousness}]]*/ 0;
+        const extraversion = /*[[${result.extraversion}]]*/ 0;
+        const agreeableness = /*[[${result.agreeableness}]]*/ 0;
+        const neuroticism = /*[[${result.neuroticism}]]*/ 0;
+
+        // detailMap을 Thymeleaf 인라인으로 받기
+        const detailScores = /*[[${detailMap}]]*/ {};
+
+        // Facet 명칭 매핑 (한글)
+        const facetNames = {
+            'N': ['불안', '분노', '우울', '자의식', '충동성', '취약성'],
+            'E': ['친밀감', '사교성', '리더십', '활동성', '자극추구', '긍정정서'],
+            'O': ['상상력', '예술적감수성', '감성', '모험성', '지적호기심', '가치관'],
+            'A': ['신뢰', '도덕성', '이타주의', '협력', '겸손', '공감'],
+            'C': ['자기효능감', '질서', '의무감', '성취지향', '절제', '신중함']
+        };
+
+        // 성격 특성별 상세 해석 데이터
+        const traitDescriptions = {
+            openness: {
+                name: '개방성 (Openness)',
+                subtitle: '새로운 경험과 아이디어에 대한 개방성',
+                high: '당신은 상상력이 풍부하고 호기심이 많습니다. 새로운 경험과 아이디어를 적극적으로 탐구하며, 예술적이고 창의적인 활동을 즐깁니다. 관습에 얽매이지 않고 독창적인 사고를 선호하며, 변화와 다양성을 환영합니다.',
+                middle: '당신은 새로운 것에 대한 호기심과 익숙한 것에 대한 선호 사이에서 균형을 유지합니다. 상황에 따라 창의적인 접근을 시도하기도 하고, 검증된 방법을 따르기도 합니다. 적절한 수준의 변화를 받아들이는 편입니다.',
+                low: '당신은 익숙하고 검증된 것을 선호합니다. 전통적이고 실용적인 접근 방식을 선호하며, 급격한 변화보다는 안정성을 중요하게 여깁니다. 구체적이고 현실적인 것에 더 관심이 많으며, 예측 가능한 환경을 편안하게 느낍니다.',
+                colors: {
+                    bg: 'bg-indigo-50',
+                    text: 'text-indigo-700',
+                    bar: 'bg-gradient-to-r from-indigo-400 to-indigo-600',
+                    border: 'border-indigo-200'
+                }
+            },
+            conscientiousness: {
+                name: '성실성 (Conscientiousness)',
+                subtitle: '책임감과 조직화 능력',
+                high: '당신은 매우 체계적이고 책임감이 강합니다. 계획을 세우고 목표를 향해 꾸준히 노력하며, 세부사항에 주의를 기울입니다. 시간 관리를 잘하고 약속을 중요하게 여기며, 일을 완벽하게 마무리하려고 노력합니다.',
+                middle: '당신은 상황에 따라 체계적으로 일하기도 하고 유연하게 대응하기도 합니다. 중요한 일에는 계획적으로 접근하지만, 때로는 즉흥적인 면모도 보입니다. 책임감과 자유로움 사이에서 균형을 찾으려 합니다.',
+                low: '당신은 자발적이고 유연한 편입니다. 엄격한 계획보다는 상황에 따라 즉흥적으로 대응하는 것을 선호하며, 융통성 있게 일을 처리합니다. 자유로운 환경에서 더 편안함을 느끼며, 지나친 규칙이나 절차를 부담스러워할 수 있습니다.',
+                colors: {
+                    bg: 'bg-blue-50',
+                    text: 'text-blue-700',
+                    bar: 'bg-gradient-to-r from-blue-400 to-blue-600',
+                    border: 'border-blue-200'
+                }
+            },
+            extraversion: {
+                name: '외향성 (Extraversion)',
+                subtitle: '사회적 상호작용과 에너지',
+                high: '당신은 활발하고 사교적입니다. 다른 사람들과 함께 있을 때 에너지를 얻으며, 주목받는 것을 즐깁니다. 적극적으로 대화에 참여하고, 새로운 사람들을 만나는 것을 좋아합니다. 열정적이고 낙관적인 태도로 주변을 밝게 만듭니다.',
+                middle: '당신은 사회적 상황과 혼자만의 시간 모두를 즐깁니다. 때로는 사교적이고 활발하지만, 혼자 있는 시간도 필요로 합니다. 상황에 따라 외향적이거나 내향적인 면모를 보이며, 다양한 환경에 잘 적응합니다.',
+                low: '당신은 조용하고 사려 깊은 편입니다. 혼자만의 시간이나 소수의 친한 사람들과 보내는 시간을 선호하며, 깊이 있는 대화를 좋아합니다. 큰 모임보다는 조용한 환경을 편안하게 느끼며, 신중하게 생각한 후 행동합니다.',
+                colors: {
+                    bg: 'bg-purple-50',
+                    text: 'text-purple-700',
+                    bar: 'bg-gradient-to-r from-purple-400 to-purple-600',
+                    border: 'border-purple-200'
+                }
+            },
+            agreeableness: {
+                name: '친화성 (Agreeableness)',
+                subtitle: '타인에 대한 공감과 협력',
+                high: '당신은 따뜻하고 친절하며 협조적입니다. 다른 사람의 감정에 공감을 잘하고, 타인을 도우려는 마음이 강합니다. 갈등을 피하고 조화를 추구하며, 타인의 관점을 이해하고 존중합니다. 관대하고 너그러운 성격입니다.',
+                middle: '당신은 협조적이면서도 자신의 의견을 표현할 줄 압니다. 타인을 배려하지만 필요할 때는 단호하게 대응할 수 있습니다. 공감과 객관성 사이에서 균형을 유지하며, 상황에 따라 유연하게 대처합니다.',
+                low: '당신은 독립적이고 경쟁적입니다. 객관적이고 논리적인 접근을 선호하며, 자신의 의견을 솔직하게 표현합니다. 때로는 타인의 감정보다 사실과 효율성을 우선시하며, 필요할 때는 갈등을 마다하지 않습니다.',
+                colors: {
+                    bg: 'bg-pink-50',
+                    text: 'text-pink-700',
+                    bar: 'bg-gradient-to-r from-pink-400 to-pink-600',
+                    border: 'border-pink-200'
+                }
+            },
+            neuroticism: {
+                name: '신경성 (Neuroticism)',
+                subtitle: '정서적 안정성과 스트레스 대처',
+                high: '당신은 감정이 풍부하고 섬세합니다. 스트레스나 걱정을 자주 경험할 수 있으며, 감정 변화가 크고 민감한 편입니다. 어려운 상황에서 불안이나 긴장을 느끼기 쉽지만, 이는 신중하고 세심한 접근으로 이어질 수 있습니다.',
+                middle: '당신은 정서적으로 안정적이면서도 때때로 스트레스를 느낍니다. 대부분의 상황에서 침착하게 대응하지만, 어려운 상황에서는 불안을 경험할 수 있습니다. 감정과 이성 사이에서 균형을 유지하려 노력합니다.',
+                low: '당신은 정서적으로 매우 안정적입니다. 스트레스 상황에서도 침착함을 유지하며, 감정적으로 흔들리지 않습니다. 차분하고 평온한 상태를 유지하며, 어려운 상황에서도 냉정하게 대처합니다. 자신감 있고 회복탄력성이 높습니다.',
+                colors: {
+                    bg: 'bg-violet-50',
+                    text: 'text-violet-700',
+                    bar: 'bg-gradient-to-r from-violet-400 to-violet-600',
+                    border: 'border-violet-200'
+                }
+            }
+        };
+
+        // 점수에 따른 레벨 판정
+        function getLevel(score) {
+            if (score >= 67) return 'high';
+            if (score >= 34) return 'middle';
+            return 'low';
+        }
+
+        // 레벨에 따른 뱃지 텍스트
+        function getLevelBadge(score) {
+            if (score >= 67) return '높음';
+            if (score >= 34) return '보통';
+            return '낮음';
+        }
+
+        // 레벨에 따른 뱃지 색상
+        function getLevelBadgeColor(score) {
+            if (score >= 67) return 'bg-green-100 text-green-800';
+            if (score >= 34) return 'bg-yellow-100 text-yellow-800';
+            return 'bg-gray-100 text-gray-800';
+        }
+
+        // 세부 항목 분석 카드 생성
+        function renderDetailedTraits() {
+            const traits = [
+                { key: 'openness', score: openness },
+                { key: 'conscientiousness', score: conscientiousness },
+                { key: 'extraversion', score: extraversion },
+                { key: 'agreeableness', score: agreeableness },
+                { key: 'neuroticism', score: neuroticism }
+            ];
+
+            const container = document.getElementById('detailedTraitsContainer');
+
+            traits.forEach(trait => {
+                const data = traitDescriptions[trait.key];
+                const level = getLevel(trait.score);
+                const description = data[level];
+                const colors = data.colors;
+
+                const card = document.createElement('div');
+                card.className = `${colors.bg} border-2 ${colors.border} rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="${colors.text} text-xl font-bold mb-1">${data.name}</h3>
+                            <p class="text-gray-600 text-sm">${data.subtitle}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="${getLevelBadgeColor(trait.score)} px-3 py-1 rounded-full text-xs font-semibold">
+                                ${getLevelBadge(trait.score)}
+                            </span>
+                            <span class="${colors.text} text-3xl font-bold">${trait.score}</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div class="${colors.bar} h-3 rounded-full transition-all duration-1000 ease-out"
+                                 style="width: 0%"
+                                 data-width="${trait.score}%">
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-gray-700 leading-relaxed text-sm">
+                        ${description}
+                    </p>
+                `;
+
+                container.appendChild(card);
+            });
+
+            // Progress bar 애니메이션
+            setTimeout(() => {
+                document.querySelectorAll('[data-width]').forEach(bar => {
+                    bar.style.width = bar.getAttribute('data-width');
+                });
+            }, 100);
+        }
+
+        // Radar Chart 설정
+        const ctx = document.getElementById('personalityRadarChart').getContext('2d');
+        const radarChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['개방성', '성실성', '외향성', '친화성', '신경성'],
+                datasets: [{
+                    label: '성격 특성 점수',
+                    data: [openness, conscientiousness, extraversion, agreeableness, neuroticism],
+                    backgroundColor: 'rgba(99, 102, 241, 0.3)',
+                    borderColor: 'rgba(99, 102, 241, 1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: 'rgba(139, 92, 246, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(139, 92, 246, 1)',
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        min: 0,
+                        max: 100,
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 20,
+                            font: {
+                                size: 12
+                            },
+                            backdropColor: 'rgba(255, 255, 255, 0.8)'
+                        },
+                        pointLabels: {
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            color: '#4B5563'
+                        },
+                        grid: {
+                            color: 'rgba(99, 102, 241, 0.2)'
+                        },
+                        angleLines: {
+                            color: 'rgba(99, 102, 241, 0.2)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(99, 102, 241, 0.9)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.parsed.r + '점';
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+
+        // Facet 차트 생성 함수
+        function createFacetChart(canvasId, domain, labels, data, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            return new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: domain + ' 소분류',
+                        data: data,
+                        backgroundColor: color.background,
+                        borderColor: color.border,
+                        borderWidth: 2,
+                        pointBackgroundColor: color.point,
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: color.point,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 20,
+                                font: {
+                                    size: 10
+                                },
+                                backdropColor: 'rgba(255, 255, 255, 0.8)'
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 11,
+                                    weight: 'bold'
+                                },
+                                color: '#4B5563'
+                            },
+                            grid: {
+                                color: color.grid
+                            },
+                            angleLines: {
+                                color: color.grid
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: color.tooltip,
+                            padding: 10,
+                            titleFont: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 11
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.parsed.r + '점';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+        }
+
+        // Facet 차트 렌더링
+        function renderFacetCharts() {
+            if (!detailScores || Object.keys(detailScores).length === 0) {
+                console.log('No detailScores available');
+                return;
+            }
+
+            // 신경성 (Neuroticism)
+            const nData = [
+                detailScores['N1'] || 0,
+                detailScores['N2'] || 0,
+                detailScores['N3'] || 0,
+                detailScores['N4'] || 0,
+                detailScores['N5'] || 0,
+                detailScores['N6'] || 0
+            ];
+            createFacetChart('neuroticismFacetChart', '신경성', facetNames['N'], nData, {
+                background: 'rgba(139, 92, 246, 0.2)',
+                border: 'rgba(139, 92, 246, 1)',
+                point: 'rgba(139, 92, 246, 1)',
+                grid: 'rgba(139, 92, 246, 0.2)',
+                tooltip: 'rgba(139, 92, 246, 0.9)'
+            });
+
+            // 외향성 (Extraversion)
+            const eData = [
+                detailScores['E1'] || 0,
+                detailScores['E2'] || 0,
+                detailScores['E3'] || 0,
+                detailScores['E4'] || 0,
+                detailScores['E5'] || 0,
+                detailScores['E6'] || 0
+            ];
+            createFacetChart('extraversionFacetChart', '외향성', facetNames['E'], eData, {
+                background: 'rgba(168, 85, 247, 0.2)',
+                border: 'rgba(168, 85, 247, 1)',
+                point: 'rgba(168, 85, 247, 1)',
+                grid: 'rgba(168, 85, 247, 0.2)',
+                tooltip: 'rgba(168, 85, 247, 0.9)'
+            });
+
+            // 개방성 (Openness)
+            const oData = [
+                detailScores['O1'] || 0,
+                detailScores['O2'] || 0,
+                detailScores['O3'] || 0,
+                detailScores['O4'] || 0,
+                detailScores['O5'] || 0,
+                detailScores['O6'] || 0
+            ];
+            createFacetChart('opennessFacetChart', '개방성', facetNames['O'], oData, {
+                background: 'rgba(99, 102, 241, 0.2)',
+                border: 'rgba(99, 102, 241, 1)',
+                point: 'rgba(99, 102, 241, 1)',
+                grid: 'rgba(99, 102, 241, 0.2)',
+                tooltip: 'rgba(99, 102, 241, 0.9)'
+            });
+
+            // 친화성 (Agreeableness)
+            const aData = [
+                detailScores['A1'] || 0,
+                detailScores['A2'] || 0,
+                detailScores['A3'] || 0,
+                detailScores['A4'] || 0,
+                detailScores['A5'] || 0,
+                detailScores['A6'] || 0
+            ];
+            createFacetChart('agreeablenessFacetChart', '친화성', facetNames['A'], aData, {
+                background: 'rgba(236, 72, 153, 0.2)',
+                border: 'rgba(236, 72, 153, 1)',
+                point: 'rgba(236, 72, 153, 1)',
+                grid: 'rgba(236, 72, 153, 0.2)',
+                tooltip: 'rgba(236, 72, 153, 0.9)'
+            });
+
+            // 성실성 (Conscientiousness)
+            const cData = [
+                detailScores['C1'] || 0,
+                detailScores['C2'] || 0,
+                detailScores['C3'] || 0,
+                detailScores['C4'] || 0,
+                detailScores['C5'] || 0,
+                detailScores['C6'] || 0
+            ];
+            createFacetChart('conscientiousnessFacetChart', '성실성', facetNames['C'], cData, {
+                background: 'rgba(59, 130, 246, 0.2)',
+                border: 'rgba(59, 130, 246, 1)',
+                point: 'rgba(59, 130, 246, 1)',
+                grid: 'rgba(59, 130, 246, 0.2)',
+                tooltip: 'rgba(59, 130, 246, 0.9)'
+            });
+        }
+
+        // 페이지 로드 시 실행
+        window.addEventListener('load', () => {
+            radarChart.update();
+            renderDetailedTraits();
+            renderFacetCharts();
+        });
+    </script>
+</body>
+</html>

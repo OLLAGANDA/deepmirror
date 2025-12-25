@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepMirror 성격 분석</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Likert Scale 선택 시 스타일 */
+        input[type="radio"]:checked + div .option-circle {
+            transform: scale(1.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 각 옵션별 색상 */
+        input[value="1"]:checked + div .option-circle {
+            background-color: #ef4444;
+            border-color: #ef4444;
+            color: white;
+        }
+
+        input[value="2"]:checked + div .option-circle {
+            background-color: #f97316;
+            border-color: #f97316;
+            color: white;
+        }
+
+        input[value="3"]:checked + div .option-circle {
+            background-color: #6b7280;
+            border-color: #6b7280;
+            color: white;
+        }
+
+        input[value="4"]:checked + div .option-circle {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+
+        input[value="5"]:checked + div .option-circle {
+            background-color: #22c55e;
+            border-color: #22c55e;
+            color: white;
+        }
+
+        /* 선택된 옵션의 라벨 강조 */
+        input[type="radio"]:checked + div .option-label {
+            font-weight: 600;
+            color: #374151;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8 px-4">
+    <div class="max-w-3xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
+            <h1 class="text-4xl font-bold text-indigo-600 mb-2">DeepMirror</h1>
+            <p class="text-gray-600 mb-4">Big Five 성격 분석</p>
+            <div class="text-sm text-gray-500">
+                <p>IPIP-NEO 기반 120개 문항 설문</p>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progress-container" class="hidden bg-white rounded-xl shadow-lg p-4 mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-semibold text-gray-700">진행률</span>
+                <span class="text-sm font-bold text-indigo-600" id="progress-text">0 / 120</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div id="progress-bar"
+                    class="bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-300"
+                    style="width: 0%"></div>
+            </div>
+            <div class="mt-2 text-center">
+                <span class="text-xs text-gray-500" id="progress-percentage">0%</span>
+            </div>
+        </div>
+
+        <!-- Nickname Input (Initial Screen) -->
+        <div id="nickname-screen" class="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">시작하기</h2>
+            <p class="text-gray-600 mb-6">먼저 닉네임을 입력해주세요.</p>
+            <input type="text" id="nickname" required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition mb-4"
+                placeholder="닉네임을 입력하세요">
+            <button id="start-btn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg">
+                시작하기
+            </button>
+        </div>
+
+        <!-- Questions Container -->
+        <div id="questions-container" class="hidden space-y-3">
+            <!-- Questions will be dynamically loaded here -->
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div id="navigation-container" class="hidden bg-white rounded-xl shadow-lg p-6 mt-6">
+            <div class="flex justify-between items-center gap-4">
+                <button id="prev-btn"
+                    class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    이전
+                </button>
+                <button id="next-btn"
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg">
+                    다음
+                </button>
+            </div>
+            <p class="text-center text-sm text-gray-500 mt-4" id="page-info">페이지 1 / 12</p>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden bg-white rounded-2xl shadow-2xl p-8 text-center">
+            <div
+                class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4">
+            </div>
+            <p class="text-gray-600 text-lg">AI가 성격을 분석하고 있습니다...</p>
+            <p class="text-gray-500 text-sm mt-2">잠시만 기다려주세요</p>
+        </div>
+    </div>
+
+    <script>
+        let questions = [];
+        let answers = {};
+        let nickname = '';
+        let currentPage = 0;
+        const itemsPerPage = 10;
+
+        const domainNames = {
+            'O': '개방성',
+            'C': '성실성',
+            'E': '외향성',
+            'A': '친화성',
+            'N': '신경성'
+        };
+
+        const domainColors = {
+            'O': 'indigo',
+            'C': 'blue',
+            'E': 'purple',
+            'A': 'green',
+            'N': 'red'
+        };
+
+        // Load questions from JSON
+        async function loadQuestions() {
+            try {
+                const response = await fetch('/data/questions.json');
+                questions = await response.json();
+                console.log('Loaded', questions.length, 'questions');
+            } catch (error) {
+                console.error('Failed to load questions:', error);
+                alert('질문을 불러오는데 실패했습니다. 페이지를 새로고침해주세요.');
+            }
+        }
+
+        // Get current page questions
+        function getCurrentPageQuestions() {
+            const start = currentPage * itemsPerPage;
+            const end = start + itemsPerPage;
+            return questions.slice(start, end);
+        }
+
+        // Get total pages
+        function getTotalPages() {
+            return Math.ceil(questions.length / itemsPerPage);
+        }
+
+        // Render questions for current page
+        function renderQuestions() {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            const pageQuestions = getCurrentPageQuestions();
+            const startIndex = currentPage * itemsPerPage;
+
+            pageQuestions.forEach((question, index) => {
+                const questionCard = createQuestionCard(question, startIndex + index);
+                container.appendChild(questionCard);
+            });
+
+            container.classList.remove('hidden');
+            updateNavigationButtons();
+            updatePageInfo();
+
+            // Scroll to top of questions
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Create a question card
+        function createQuestionCard(question, index) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-md p-4 transition-all duration-300 border border-gray-100';
+            card.id = `question-${question.id}`;
+
+            const domainColor = domainColors[question.domain];
+
+            card.innerHTML = `
+                <div class="flex items-start mb-2">
+                    <span class="inline-block bg-${domainColor}-100 text-${domainColor}-700 text-xs font-semibold px-3 py-1 rounded-full mr-3">
+                        ${domainNames[question.domain]}
+                    </span>
+                    <span class="text-sm text-gray-500">질문 ${index + 1} / ${questions.length}</span>
+                </div>
+                <p class="text-base font-medium text-gray-800 mb-3">${question.text}</p>
+                ${createLikertScale(question.id)}
+            `;
+
+            return card;
+        }
+
+        // Create Likert scale (1-5) - Horizontal Layout
+        function createLikertScale(questionId) {
+            const options = [
+                { value: 1, label: '전혀 아니다' },
+                { value: 2, label: '아니다' },
+                { value: 3, label: '보통이다' },
+                { value: 4, label: '그렇다' },
+                { value: 5, label: '매우 그렇다' }
+            ];
+
+            const savedAnswer = answers[questionId];
+
+            const scaleHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    ${options.map(option => `
+                        <label class="flex-1 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="question-${questionId}"
+                                value="${option.value}"
+                                ${savedAnswer === option.value ? 'checked' : ''}
+                                class="hidden"
+                                onchange="handleAnswer(${questionId}, ${option.value})"
+                            >
+                            <div class="flex flex-col items-center">
+                                <div class="option-circle w-10 h-10 sm:w-12 sm:h-12 rounded-full border-4 border-gray-300 flex items-center justify-center
+                                    hover:border-gray-400 transition-all duration-200 font-bold text-gray-600">
+                                    ${option.value}
+                                </div>
+                                <span class="option-label text-xs text-gray-500 mt-1 text-center hidden sm:block">
+                                   ${option.label}
+                                </span>
+                            </div>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+
+            return scaleHTML;
+        }
+
+        // Handle answer selection
+        function handleAnswer(questionId, value) {
+            answers[questionId] = parseInt(value);
+            updateProgress();
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const answeredCount = Object.keys(answers).length;
+            const totalCount = questions.length;
+            const percentage = Math.round((answeredCount / totalCount) * 100);
+
+            document.getElementById('progress-bar').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = `${answeredCount} / ${totalCount}`;
+            document.getElementById('progress-percentage').textContent = `${percentage}%`;
+        }
+
+        // Check if current page is fully answered
+        function isCurrentPageAnswered() {
+            const pageQuestions = getCurrentPageQuestions();
+            return pageQuestions.every(q => answers[q.id] !== undefined);
+        }
+
+        // Update navigation buttons
+        function updateNavigationButtons() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const totalPages = getTotalPages();
+            const isLastPage = currentPage === totalPages - 1;
+
+            // Previous button
+            prevBtn.disabled = currentPage === 0;
+
+            // Next button
+            if (isLastPage) {
+                nextBtn.textContent = '결과 보기';
+                nextBtn.className = 'flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg';
+            } else {
+                nextBtn.textContent = '다음';
+                nextBtn.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg';
+            }
+        }
+
+        // Update page info
+        function updatePageInfo() {
+            const totalPages = getTotalPages();
+            document.getElementById('page-info').textContent = `페이지 ${currentPage + 1} / ${totalPages}`;
+        }
+
+        // Go to next page
+        function goToNextPage() {
+            if (!isCurrentPageAnswered()) {
+                alert('현재 페이지의 모든 질문에 답변해주세요.');
+                return;
+            }
+
+            const totalPages = getTotalPages();
+            const isLastPage = currentPage === totalPages - 1;
+
+            if (isLastPage) {
+                // Check if all questions are answered
+                if (Object.keys(answers).length === questions.length) {
+                    submitForm();
+                } else {
+                    alert('모든 질문에 답변해주세요.');
+                }
+            } else {
+                currentPage++;
+                renderQuestions();
+            }
+        }
+
+        // Go to previous page
+        function goToPreviousPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                renderQuestions();
+            }
+        }
+
+        // Calculate scores for each domain and facet
+        function calculateScores() {
+            const domainScores = {
+                'O': [],
+                'C': [],
+                'E': [],
+                'A': [],
+                'N': []
+            };
+
+            // Facet별 점수 저장 (Domain + Facet 조합)
+            const facetScores = {};
+
+            // Group answers by domain and facet, apply reverse scoring
+            questions.forEach(question => {
+                const answer = answers[question.id];
+                if (answer !== undefined) {
+                    let score = answer;
+
+                    // Reverse scoring for "minus" keyed items
+                    if (question.keyed === 'minus') {
+                        score = 6 - answer;
+                    }
+
+                    // Domain 점수 저장
+                    domainScores[question.domain].push(score);
+
+                    // Facet 점수 저장 (키: "N1", "E2", "O3" 등)
+                    const facetKey = question.domain + question.facet;
+                    if (!facetScores[facetKey]) {
+                        facetScores[facetKey] = [];
+                    }
+                    facetScores[facetKey].push(score);
+                }
+            });
+
+            // Calculate domain averages and convert to 100-point scale
+            const finalScores = {};
+            for (const [domain, scores] of Object.entries(domainScores)) {
+                const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+                // Convert from 1-5 scale to 0-100 scale
+                finalScores[domain] = Math.round(((average - 1) / 4) * 100);
+            }
+
+            // Calculate facet averages and convert to 100-point scale
+            const detailScores = {};
+            for (const [facetKey, scores] of Object.entries(facetScores)) {
+                const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+                // Convert from 1-5 scale to 0-100 scale
+                detailScores[facetKey] = Math.round(((average - 1) / 4) * 100);
+            }
+
+            return {
+                openness: finalScores['O'],
+                conscientiousness: finalScores['C'],
+                extraversion: finalScores['E'],
+                agreeableness: finalScores['A'],
+                neuroticism: finalScores['N'],
+                detailScores: detailScores
+            };
+        }
+
+        // Submit the form
+        async function submitForm() {
+            const scores = calculateScores();
+
+            const payload = {
+                clientIp: nickname,
+                openness: scores.openness,
+                conscientiousness: scores.conscientiousness,
+                extraversion: scores.extraversion,
+                agreeableness: scores.agreeableness,
+                neuroticism: scores.neuroticism,
+                detailScores: scores.detailScores
+            };
+
+            console.log('Submitting scores:', payload);
+
+            // Show loading
+            document.getElementById('questions-container').classList.add('hidden');
+            document.getElementById('navigation-container').classList.add('hidden');
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/v1/results', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error('분석 요청에 실패했습니다.');
+                }
+
+                const result = await response.json();
+
+                // Redirect to result page
+                window.location.href = '/results/' + result.id;
+
+            } catch (error) {
+                alert('오류가 발생했습니다: ' + error.message);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('questions-container').classList.remove('hidden');
+                document.getElementById('navigation-container').classList.remove('hidden');
+                document.getElementById('progress-container').classList.remove('hidden');
+            }
+        }
+
+        // Start button handler
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const nicknameInput = document.getElementById('nickname');
+            if (!nicknameInput.value.trim()) {
+                alert('닉네임을 입력해주세요.');
+                return;
+            }
+
+            nickname = nicknameInput.value.trim();
+            document.getElementById('nickname-screen').classList.add('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('navigation-container').classList.remove('hidden');
+            renderQuestions();
+        });
+
+        // Previous button handler
+        document.getElementById('prev-btn').addEventListener('click', goToPreviousPage);
+
+        // Next button handler
+        document.getElementById('next-btn').addEventListener('click', goToNextPage);
+
+        // Initialize
+        loadQuestions();
+    </script>
+</body>
+
+</html>

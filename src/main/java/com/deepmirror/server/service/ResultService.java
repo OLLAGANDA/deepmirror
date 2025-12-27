@@ -88,22 +88,28 @@ public class ResultService {
      */
     private String analyzePersonality(int openness, int conscientiousness,
                                       int extraversion, int agreeableness, int neuroticism) {
-        String systemPrompt = "너는 심리학 전문가야. Big Five 성격 이론에 기반하여 사용자의 성격을 분석하고, 실용적이고 긍정적인 피드백을 제공해.";
+        String systemPrompt = """
+            당신은 임상 심리학자이자 성격 분석 전문가입니다.
+            Big Five 이론에 기반하여 사용자의 성격을 분석해주세요.
+            단순히 각 항목의 점수를 나열하지 말고, **가장 점수가 높은 2가지 특성과 낮은 특성이 서로 어떻게 상호작용하는지**에 주목하여 통찰력 있는 분석을 제공하세요.
+            말투는 전문적이면서도 따뜻하고 격려하는 톤으로 작성해주세요.
+            """;
 
         String userMessage = String.format(
-                """
-                다음은 Big Five 성격 검사 결과입니다. 각 항목은 0~100 사이의 점수입니다:
-
-                - 개방성 (Openness): %d
-                - 성실성 (Conscientiousness): %d
-                - 외향성 (Extraversion): %d
-                - 친화성 (Agreeableness): %d
-                - 신경성 (Neuroticism): %d
-
-                이 점수를 바탕으로 사용자의 성격을 종합적으로 분석하고, 각 특성이 일상생활과 대인관계에 어떤 영향을 미치는지 설명해주세요.
-                200자 이내로 간결하게 작성해주세요.
-                """,
-                openness, conscientiousness, extraversion, agreeableness, neuroticism
+            """
+            [Big Five 검사 결과]
+            - 개방성 (Openness): %d
+            - 성실성 (Conscientiousness): %d
+            - 외향성 (Extraversion): %d
+            - 친화성 (Agreeableness): %d
+            - 신경성 (Neuroticism): %d
+            
+            위 점수를 바탕으로 다음 내용을 포함하여 350자 이내로 요약해주세요:
+            1. 성격의 핵심 요약 (특성 간의 조화 위주)
+            2. 직업적/사회적 강점
+            3. 보완하면 좋을 점 혹은 조언 1가지
+            """,
+            openness, conscientiousness, extraversion, agreeableness, neuroticism
         );
 
         return geminiService.generateContent(systemPrompt, userMessage);

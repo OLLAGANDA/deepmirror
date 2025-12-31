@@ -222,32 +222,62 @@
     </div>
 
     <script>
+        // ========================================
+        // [Configuration]
+        // ========================================
+        const CONFIG = {
+            API_ENDPOINTS: {
+                QUESTIONS: '/data/questions.json',
+                RESULTS: '/api/v1/results',
+                FEEDBACK: '/api/feedback'
+            },
+            TIMINGS: {
+                AUTO_ADVANCE_DELAY: 200,
+                TOAST_DURATION: 3000,
+                TOAST_FADE_OUT: 300
+            },
+            UI_SETTINGS: {
+                ITEMS_PER_PAGE: 5,
+                SCORE_MIN: 1,
+                SCORE_MAX: 5,
+                SCORE_RANGE: 100
+            },
+            STORAGE_KEY: 'deepmirror_progress',
+            DOMAIN_NAMES: {
+                'O': '개방성',
+                'C': '성실성',
+                'E': '외향성',
+                'A': '친화성',
+                'N': '신경성'
+            },
+            DOMAIN_COLORS: {
+                'O': 'indigo',
+                'C': 'blue',
+                'E': 'purple',
+                'A': 'green',
+                'N': 'red'
+            },
+            LIKERT_OPTIONS: [
+                { value: 1, label: '전혀 아니다' },
+                { value: 2, label: '아니다' },
+                { value: 3, label: '보통이다' },
+                { value: 4, label: '그렇다' },
+                { value: 5, label: '매우 그렇다' }
+            ]
+        };
+
+        // ========================================
+        // [State Management]
+        // ========================================
         let questions = [];
         let answers = {};
         let nickname = '';
         let currentPage = 0;
-        const itemsPerPage = 5;
-        let autoAdvanceTimer = null; // 자동 페이지 넘김 타이머
+        let autoAdvanceTimer = null;
 
-        const domainNames = {
-            'O': '개방성',
-            'C': '성실성',
-            'E': '외향성',
-            'A': '친화성',
-            'N': '신경성'
-        };
-
-        const domainColors = {
-            'O': 'indigo',
-            'C': 'blue',
-            'E': 'purple',
-            'A': 'green',
-            'N': 'red'
-        };
-
-        const STORAGE_KEY = 'deepmirror_progress';
-
-        // Save progress to localStorage
+        // ========================================
+        // [Storage & Persistence]
+        // ========================================
         function saveProgress() {
             const progressData = {
                 answers: answers,
@@ -256,44 +286,32 @@
                 timestamp: new Date().toISOString()
             };
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
+                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(progressData));
                 console.log('Progress saved:', progressData);
             } catch (error) {
                 console.error('Failed to save progress:', error);
             }
         }
 
-        // Load progress from localStorage
         function loadProgress() {
             try {
-                const savedData = localStorage.getItem(STORAGE_KEY);
-                if (savedData) {
-                    const progressData = JSON.parse(savedData);
+                const savedData = localStorage.getItem(CONFIG.STORAGE_KEY);
+                if (!savedData) {
+                    return false;
+                }
 
-                    // 복구된 데이터 적용
-                    answers = progressData.answers || {};
-                    currentPage = progressData.currentPage || 0;
-                    nickname = progressData.nickname || '';
+                const progressData = JSON.parse(savedData);
+                answers = progressData.answers || {};
+                currentPage = progressData.currentPage || 0;
+                nickname = progressData.nickname || '';
 
-                    // 답변이 있는 경우에만 복구 진행
-                    if (Object.keys(answers).length > 0) {
-                        console.log('Progress loaded:', progressData);
-
-                        // 닉네임 화면과 건의함 숨기고 진행 화면 표시
-                        document.getElementById('nickname-screen').classList.add('hidden');
-                        document.getElementById('feedback-section').classList.add('hidden');
-                        document.getElementById('progress-container').classList.remove('hidden');
-                        document.getElementById('navigation-container').classList.remove('hidden');
-
-                        // 질문 렌더링 및 진행률 업데이트
-                        renderQuestions();
-                        updateProgress();
-
-                        // 토스트 메시지 표시
-                        showToast('이전 진행 상황을 불러왔습니다');
-
-                        return true;
-                    }
+                if (Object.keys(answers).length > 0) {
+                    console.log('Progress loaded:', progressData);
+                    showQuestionScreen();
+                    renderQuestions();
+                    updateProgress();
+                    showToast('이전 진행 상황을 불러왔습니다');
+                    return true;
                 }
             } catch (error) {
                 console.error('Failed to load progress:', error);
@@ -301,38 +319,21 @@
             return false;
         }
 
-        // Show toast message
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            // 3초 후 제거
-            setTimeout(() => {
-                toast.classList.add('hiding');
-                setTimeout(() => {
-                    document.body.removeChild(toast);
-                }, 300);
-            }, 3000);
-        }
-
-        // Reset progress (처음부터 다시 하기)
         function resetProgress() {
             if (confirm('정말로 처음부터 다시 시작하시겠습니까? 모든 진행 상황이 삭제됩니다.')) {
-                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(CONFIG.STORAGE_KEY);
                 location.reload();
             }
         }
 
-        // Load questions from JSON
+        // ========================================
+        // [Initialization]
+        // ========================================
         async function loadQuestions() {
             try {
-                const response = await fetch('/data/questions.json');
+                const response = await fetch(CONFIG.API_ENDPOINTS.QUESTIONS);
                 questions = await response.json();
                 console.log('Loaded', questions.length, 'questions');
-
-                // 질문 로드 후 진행 상황 복구 시도
                 loadProgress();
             } catch (error) {
                 console.error('Failed to load questions:', error);
@@ -340,31 +341,56 @@
             }
         }
 
-        // Get current page questions
-        function getCurrentPageQuestions() {
-            const start = currentPage * itemsPerPage;
-            const end = start + itemsPerPage;
-            return questions.slice(start, end);
+        function init() {
+            loadQuestions();
         }
 
-        // Get total pages
-        function getTotalPages() {
-            return Math.ceil(questions.length / itemsPerPage);
+        // ========================================
+        // [UI Rendering]
+        // ========================================
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, CONFIG.TIMINGS.TOAST_FADE_OUT);
+            }, CONFIG.TIMINGS.TOAST_DURATION);
         }
 
-        // Render questions for current page
+        function showQuestionScreen() {
+            document.getElementById('nickname-screen').classList.add('hidden');
+            document.getElementById('feedback-section').classList.add('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('navigation-container').classList.remove('hidden');
+        }
+
+        function showLoadingScreen() {
+            document.getElementById('questions-container').classList.add('hidden');
+            document.getElementById('navigation-container').classList.add('hidden');
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+        }
+
+        function hideLoadingScreen() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('questions-container').classList.remove('hidden');
+            document.getElementById('navigation-container').classList.remove('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+        }
+
         function renderQuestions() {
-            // 페이지 전환 시 자동 넘김 타이머 취소
-            if (autoAdvanceTimer) {
-                clearTimeout(autoAdvanceTimer);
-                autoAdvanceTimer = null;
-            }
+            cancelAutoAdvanceTimer();
 
             const container = document.getElementById('questions-container');
             container.innerHTML = '';
 
             const pageQuestions = getCurrentPageQuestions();
-            const startIndex = currentPage * itemsPerPage;
+            const startIndex = currentPage * CONFIG.UI_SETTINGS.ITEMS_PER_PAGE;
 
             pageQuestions.forEach((question, index) => {
                 const questionCard = createQuestionCard(question, startIndex + index);
@@ -374,23 +400,21 @@
             container.classList.remove('hidden');
             updateNavigationButtons();
             updatePageInfo();
-
-            // Scroll to top of questions
             container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        // Create a question card
         function createQuestionCard(question, index) {
             const card = document.createElement('div');
             card.className = 'bg-white rounded-xl shadow-md p-4 transition-all duration-300 border border-gray-100';
             card.id = `question-${question.id}`;
 
-            const domainColor = domainColors[question.domain];
+            const domainColor = CONFIG.DOMAIN_COLORS[question.domain];
+            const domainName = CONFIG.DOMAIN_NAMES[question.domain];
 
             card.innerHTML = `
                 <div class="flex items-start mb-2">
                     <span class="inline-block bg-${domainColor}-100 text-${domainColor}-700 text-xs font-semibold px-3 py-1 rounded-full mr-3">
-                        ${domainNames[question.domain]}
+                        ${domainName}
                     </span>
                     <span class="text-sm text-gray-500">질문 ${index + 1} / ${questions.length}</span>
                 </div>
@@ -401,21 +425,12 @@
             return card;
         }
 
-        // Create Likert scale (1-5) - Horizontal Layout
         function createLikertScale(questionId) {
-            const options = [
-                { value: 1, label: '전혀 아니다' },
-                { value: 2, label: '아니다' },
-                { value: 3, label: '보통이다' },
-                { value: 4, label: '그렇다' },
-                { value: 5, label: '매우 그렇다' }
-            ];
-
             const savedAnswer = answers[questionId];
 
             const scaleHTML = `
                 <div class="flex items-center justify-between gap-2">
-                    ${options.map(option => `
+                    ${CONFIG.LIKERT_OPTIONS.map(option => `
                         <label class="flex-1 cursor-pointer">
                             <input
                                 type="radio"
@@ -442,35 +457,9 @@
             return scaleHTML;
         }
 
-        // Handle answer selection
-        function handleAnswer(questionId, value) {
-            answers[questionId] = parseInt(value);
-            updateProgress();
-            saveProgress(); // 진행 상황 저장
-
-            // 자동 페이지 넘김 로직
-            // 기존 타이머가 있으면 취소
-            if (autoAdvanceTimer) {
-                clearTimeout(autoAdvanceTimer);
-                autoAdvanceTimer = null;
-            }
-
-            // 현재 페이지의 모든 문항이 응답되었는지 확인
-            if (isCurrentPageAnswered()) {
-                const totalPages = getTotalPages();
-                const isLastPage = currentPage === totalPages - 1;
-
-                // 마지막 페이지가 아닌 경우에만 자동 넘김
-                if (!isLastPage) {
-                    autoAdvanceTimer = setTimeout(() => {
-                        goToNextPage();
-                        autoAdvanceTimer = null;
-                    }, 200); // 200ms 지연
-                }
-            }
-        }
-
-        // Update progress bar
+        // ========================================
+        // [Progress & Navigation]
+        // ========================================
         function updateProgress() {
             const answeredCount = Object.keys(answers).length;
             const totalCount = questions.length;
@@ -481,23 +470,14 @@
             document.getElementById('progress-percentage').textContent = `${percentage}%`;
         }
 
-        // Check if current page is fully answered
-        function isCurrentPageAnswered() {
-            const pageQuestions = getCurrentPageQuestions();
-            return pageQuestions.every(q => answers[q.id] !== undefined);
-        }
-
-        // Update navigation buttons
         function updateNavigationButtons() {
             const prevBtn = document.getElementById('prev-btn');
             const nextBtn = document.getElementById('next-btn');
             const totalPages = getTotalPages();
-            const isLastPage = currentPage === totalPages - 1;
+            const isLastPage = isLastPageReached();
 
-            // Previous button
             prevBtn.disabled = currentPage === 0;
 
-            // Next button
             if (isLastPage) {
                 nextBtn.textContent = '결과 보기';
                 nextBtn.className = 'flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-lg';
@@ -507,25 +487,19 @@
             }
         }
 
-        // Update page info
         function updatePageInfo() {
             const totalPages = getTotalPages();
             document.getElementById('page-info').textContent = `페이지 ${currentPage + 1} / ${totalPages}`;
         }
 
-        // Go to next page
         function goToNextPage() {
             if (!isCurrentPageAnswered()) {
                 alert('현재 페이지의 모든 질문에 답변해주세요.');
                 return;
             }
 
-            const totalPages = getTotalPages();
-            const isLastPage = currentPage === totalPages - 1;
-
-            if (isLastPage) {
-                // Check if all questions are answered
-                if (Object.keys(answers).length === questions.length) {
+            if (isLastPageReached()) {
+                if (isAllQuestionsAnswered()) {
                     submitForm();
                 } else {
                     alert('모든 질문에 답변해주세요.');
@@ -533,69 +507,95 @@
             } else {
                 currentPage++;
                 renderQuestions();
-                saveProgress(); // 페이지 이동 시 진행 상황 저장
+                saveProgress();
             }
         }
 
-        // Go to previous page
         function goToPreviousPage() {
             if (currentPage > 0) {
                 currentPage--;
                 renderQuestions();
-                saveProgress(); // 페이지 이동 시 진행 상황 저장
+                saveProgress();
             }
         }
 
-        // Calculate scores for each domain and facet
-        function calculateScores() {
-            const domainScores = {
-                'O': [],
-                'C': [],
-                'E': [],
-                'A': [],
-                'N': []
-            };
+        // ========================================
+        // [Business Logic]
+        // ========================================
+        function getCurrentPageQuestions() {
+            const start = currentPage * CONFIG.UI_SETTINGS.ITEMS_PER_PAGE;
+            const end = start + CONFIG.UI_SETTINGS.ITEMS_PER_PAGE;
+            return questions.slice(start, end);
+        }
 
-            // Facet별 점수 저장 (Domain + Facet 조합)
+        function getTotalPages() {
+            return Math.ceil(questions.length / CONFIG.UI_SETTINGS.ITEMS_PER_PAGE);
+        }
+
+        function isCurrentPageAnswered() {
+            const pageQuestions = getCurrentPageQuestions();
+            return pageQuestions.every(question => answers[question.id] !== undefined);
+        }
+
+        function isLastPageReached() {
+            const totalPages = getTotalPages();
+            return currentPage === totalPages - 1;
+        }
+
+        function isAllQuestionsAnswered() {
+            return Object.keys(answers).length === questions.length;
+        }
+
+        function cancelAutoAdvanceTimer() {
+            if (autoAdvanceTimer) {
+                clearTimeout(autoAdvanceTimer);
+                autoAdvanceTimer = null;
+            }
+        }
+
+        function scheduleAutoAdvance() {
+            if (isCurrentPageAnswered() && !isLastPageReached()) {
+                autoAdvanceTimer = setTimeout(() => {
+                    goToNextPage();
+                    autoAdvanceTimer = null;
+                }, CONFIG.TIMINGS.AUTO_ADVANCE_DELAY);
+            }
+        }
+
+        function calculateScores() {
+            const domainScores = { 'O': [], 'C': [], 'E': [], 'A': [], 'N': [] };
             const facetScores = {};
 
-            // Group answers by domain and facet, apply reverse scoring
             questions.forEach(question => {
                 const answer = answers[question.id];
-                if (answer !== undefined) {
-                    let score = answer;
-
-                    // Reverse scoring for "minus" keyed items
-                    if (question.keyed === 'minus') {
-                        score = 6 - answer;
-                    }
-
-                    // Domain 점수 저장
-                    domainScores[question.domain].push(score);
-
-                    // Facet 점수 저장 (키: "N1", "E2", "O3" 등)
-                    const facetKey = question.domain + question.facet;
-                    if (!facetScores[facetKey]) {
-                        facetScores[facetKey] = [];
-                    }
-                    facetScores[facetKey].push(score);
+                if (answer === undefined) {
+                    return;
                 }
+
+                let score = answer;
+                if (question.keyed === 'minus') {
+                    score = (CONFIG.UI_SETTINGS.SCORE_MAX + CONFIG.UI_SETTINGS.SCORE_MIN) - answer;
+                }
+
+                domainScores[question.domain].push(score);
+
+                const facetKey = question.domain + question.facet;
+                if (!facetScores[facetKey]) {
+                    facetScores[facetKey] = [];
+                }
+                facetScores[facetKey].push(score);
             });
 
-            // Calculate domain averages and convert to 100-point scale
             const finalScores = {};
             for (const [domain, scores] of Object.entries(domainScores)) {
-                const average = scores.reduce((a, b) => a + b, 0) / scores.length;
-                // Convert from 1-5 scale to 0-100 scale
-                finalScores[domain] = Math.round(((average - 1) / 4) * 100);
+                const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+                finalScores[domain] = convertToHundredScale(average);
             }
 
-            // Calculate facet averages and convert to 100-point scale
             const detailScores = {};
             for (const [facetKey, scores] of Object.entries(facetScores)) {
-                const average = scores.reduce((a, b) => a + b, 0) / scores.length;
-                // Convert from 1-5 scale to 0-100 scale
-                detailScores[facetKey] = Math.round(((average - 1) / 4) * 100);
+                const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+                detailScores[facetKey] = convertToHundredScale(average);
             }
 
             return {
@@ -608,7 +608,48 @@
             };
         }
 
-        // Submit the form
+        function convertToHundredScale(average) {
+            const range = CONFIG.UI_SETTINGS.SCORE_MAX - CONFIG.UI_SETTINGS.SCORE_MIN;
+            return Math.round(((average - CONFIG.UI_SETTINGS.SCORE_MIN) / range) * CONFIG.UI_SETTINGS.SCORE_RANGE);
+        }
+
+        // ========================================
+        // [API Communication]
+        // ========================================
+        async function sendRequest(url, method = 'GET', data = null) {
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(url, options);
+
+            if (!response.ok) {
+                let errorMessage = `요청에 실패했습니다 (${response.status})`;
+
+                try {
+                    const errorData = await response.json();
+                    if (errorData.details) {
+                        errorMessage = errorData.details;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                } catch (e) {
+                    // JSON 파싱 실패 시 기본 메시지 사용
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            return await response.json();
+        }
+
         async function submitForm() {
             const scores = calculateScores();
 
@@ -623,120 +664,106 @@
             };
 
             console.log('Submitting scores:', payload);
-
-            // Show loading
-            document.getElementById('questions-container').classList.add('hidden');
-            document.getElementById('navigation-container').classList.add('hidden');
-            document.getElementById('progress-container').classList.add('hidden');
-            document.getElementById('loading').classList.remove('hidden');
+            showLoadingScreen();
 
             try {
-                const response = await fetch('/api/v1/results', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error('분석 요청에 실패했습니다.');
-                }
-
-                const result = await response.json();
-
-                // 성공 시 진행 상황 삭제
-                localStorage.removeItem(STORAGE_KEY);
-
-                // Redirect to result page
+                const result = await sendRequest(CONFIG.API_ENDPOINTS.RESULTS, 'POST', payload);
+                localStorage.removeItem(CONFIG.STORAGE_KEY);
                 window.location.href = '/results/' + result.id;
-
             } catch (error) {
                 alert('오류가 발생했습니다: ' + error.message);
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('questions-container').classList.remove('hidden');
-                document.getElementById('navigation-container').classList.remove('hidden');
-                document.getElementById('progress-container').classList.remove('hidden');
+                hideLoadingScreen();
             }
         }
 
-        // Start button handler
-        document.getElementById('start-btn').addEventListener('click', () => {
+        async function submitFeedback(name, email, content) {
+            const payload = {
+                senderName: name,
+                email: email,
+                content: content
+            };
+
+            return await sendRequest(CONFIG.API_ENDPOINTS.FEEDBACK, 'POST', payload);
+        }
+
+        // ========================================
+        // [Event Handlers]
+        // ========================================
+        function handleAnswer(questionId, value) {
+            answers[questionId] = parseInt(value);
+            updateProgress();
+            saveProgress();
+
+            cancelAutoAdvanceTimer();
+            scheduleAutoAdvance();
+        }
+
+        function handleStartButton() {
             const nicknameInput = document.getElementById('nickname');
-            if (!nicknameInput.value.trim()) {
+            const inputValue = nicknameInput.value.trim();
+
+            if (!inputValue) {
                 alert('닉네임을 입력해주세요.');
                 return;
             }
 
-            nickname = nicknameInput.value.trim();
-            document.getElementById('nickname-screen').classList.add('hidden');
-            document.getElementById('feedback-section').classList.add('hidden');
-            document.getElementById('progress-container').classList.remove('hidden');
-            document.getElementById('navigation-container').classList.remove('hidden');
+            nickname = inputValue;
+            showQuestionScreen();
             renderQuestions();
-            saveProgress(); // 시작 시 진행 상황 저장
-        });
+            saveProgress();
+        }
 
-        // Previous button handler
-        document.getElementById('prev-btn').addEventListener('click', goToPreviousPage);
+        function isValidEmail(email) {
+            const emailRegex = /^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+            return emailRegex.test(email);
+        }
 
-        // Next button handler
-        document.getElementById('next-btn').addEventListener('click', goToNextPage);
-
-        // Feedback form handler
-        document.getElementById('feedback-form').addEventListener('submit', async (e) => {
-            e.preventDefault(); // 페이지 새로고침 방지
+        async function handleFeedbackSubmit(event) {
+            event.preventDefault();
 
             const name = document.getElementById('feedback-name').value.trim();
             const email = document.getElementById('feedback-email').value.trim();
             const content = document.getElementById('feedback-content').value.trim();
 
-            // 유효성 검사
             if (!name || !email || !content) {
                 alert('모든 항목을 입력해주세요.');
                 return;
             }
 
-            // 버튼 비활성화
+            if (!isValidEmail(email)) {
+                alert('올바른 이메일 형식을 입력해주세요.\n예: example@domain.com');
+                return;
+            }
+
             const submitBtn = document.getElementById('feedback-submit-btn');
             const originalText = submitBtn.textContent;
             submitBtn.disabled = true;
             submitBtn.textContent = '전송 중...';
 
             try {
-                const response = await fetch('/api/feedback', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        senderName: name,
-                        email: email,
-                        content: content
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('전송에 실패했습니다.');
-                }
-
-                // 성공 시 토스트 메시지 표시
+                await submitFeedback(name, email, content);
                 showToast('소중한 의견 감사합니다! 🙇‍♂️');
-
-                // 폼 초기화
                 document.getElementById('feedback-form').reset();
-
             } catch (error) {
                 alert('오류가 발생했습니다: ' + error.message);
             } finally {
-                // 버튼 활성화
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
             }
-        });
+        }
 
-        // Initialize
-        loadQuestions();
+        // ========================================
+        // [Event Listeners Setup]
+        // ========================================
+        document.getElementById('start-btn').addEventListener('click', handleStartButton);
+        document.getElementById('prev-btn').addEventListener('click', goToPreviousPage);
+        document.getElementById('next-btn').addEventListener('click', goToNextPage);
+        document.getElementById('feedback-form').addEventListener('submit', handleFeedbackSubmit);
+
+        // ========================================
+        // [Application Initialization]
+        // ========================================
+        init();
     </script>
 </body>
 

@@ -60,15 +60,15 @@ cp .env.example .env
 `.env` 파일을 열어 다음 값을 설정:
 ```env
 # 데이터베이스 설정
-POSTGRES_DB=deepmirror
-POSTGRES_USER=deepmirror_user
-POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=your_database_name
+POSTGRES_USER=your_database_user
+POSTGRES_PASSWORD=your_database_password
 
-SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/deepmirror
-SPRING_DATASOURCE_USERNAME=deepmirror_user
-SPRING_DATASOURCE_PASSWORD=your_secure_password
+SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/your_database_name
+SPRING_DATASOURCE_USERNAME=your_database_user
+SPRING_DATASOURCE_PASSWORD=your_database_password
 
-# AI 설정
+# AI 설정 (필수)
 GEMINI_API_KEY=your_gemini_api_key
 
 # JPA 설정 (개발: update, 프로덕션: validate)

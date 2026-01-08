@@ -2,7 +2,7 @@
 
 > AI 기반 성격 분석 및 미러링 웹 애플리케이션
 
-DeepsMirror는 Gemini AI를 활용하여 사용자의 성격을 분석하고, 그에 맞는 인사이트를 제공하는 Spring Boot 기반 웹 애플리케이션입니다.
+[DeepsMirror](https://deepsmirror.com/)는 Gemini AI를 활용하여 사용자의 성격을 분석하고, 그에 맞는 인사이트를 제공하는 Spring Boot 기반 웹 애플리케이션입니다.
 
 ## 주요 기능
 
@@ -210,7 +210,7 @@ docker compose restart app
 
 ## 기여
 
-버그 리포트나 기능 제안은 Issues를 통해 제출해주세요.
+버그 리포트나 기능 제안은 Issues or 사이트의 문의하기를 통해 제출해주세요.
 
 ---
 
